@@ -1,4 +1,5 @@
 import gym
+
 env = gym.make("CartPole-v1")
 observation = env.reset()
 for _ in range(1000):
