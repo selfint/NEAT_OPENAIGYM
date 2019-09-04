@@ -35,7 +35,7 @@ class NEAT:
         return [Innovation(idx, i, j+inputs, np.random.random_sample() * 2 - 1, True)
                 for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
 
-    def new_generation(self, genome_scores: List[float]) -> null:
+    def new_generation(self, genome_scores: List[float]) -> None:
         """updates the genome population using speciation, crossover and mutations
         based on the scores of each genome
 
