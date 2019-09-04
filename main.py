@@ -1,6 +1,12 @@
 import gym
+from neat import NEAT
 
 env = gym.make("CartPole-v1")
+POPULATION_SIZE = 10
+INPUTS = env.observation_space
+agents = NEAT(POPULATION_SIZE, 10, 10)
+
+"""
 observation = env.reset()
 for _ in range(1000):
   env.render()
@@ -10,3 +16,4 @@ for _ in range(1000):
   if done:
     observation = env.reset()
 env.close()
+"""
