@@ -22,6 +22,7 @@ class NodeType(Enum):
 class Node:
     idx: int
     role: NodeType
+    bias: float
 
 
 @dataclass
