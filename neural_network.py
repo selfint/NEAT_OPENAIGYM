@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Callable
 import numpy as np
-from data_types import Node, Innovation, NodeType
+from data_types import Node, Innovation, NodeType, Genome
 from activations import sigmoid
 
 
@@ -13,16 +13,18 @@ class NeuralNetwork:
 
     """
 
-    def __init__(self, nodes: List[Node], innovations: List[Innovation], activation=sigmoid):
+    def __init__(self, genome: Genome, activation: Callable[float, float] = sigmoid):
         """Creates a neural network object from Node and Innovation objects.
         Output is calculated recursively from the output nodes.
-
+        
         Arguments:
-            nodes {List[Node]} -- list of nodes
-            innovations {List[Innovation]} -- list of innovations
+            genome {Genome} -- genome to generate network for
+        
+        Keyword Arguments:
+            activation {function} -- [description] (default: {sigmoid})
         """
-        self.nodes = nodes
-        self.innovations = innovations
+        self.nodes = genome.nodes
+        self.innovations = genome.innovations
         self.input_nodes = [
             node for node in self.nodes if node.role is NodeType.INPUT]
         self.output_nodes = [
