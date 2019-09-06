@@ -2,6 +2,7 @@ import numpy as np
 from data_types import Innovation, Node, Genome, NodeType
 from typing import List
 from itertools import product
+import tensorflow as tf
 
 
 class NEAT:
@@ -9,10 +10,12 @@ class NEAT:
 
     def __init__(self, population_size: int, inputs: int, outputs: int, connected: bool = True):
         self.population_size: int = population_size
+        self.inputs = inputs
+        self.outputs = outputs
         self.population: List[Genome] = []
 
         # generate initial nodes for genomes here since they are the same for all genomes
-        _initial_nodes: List[Node] = [Node(i, NodeType.INPUT if i < inputs else NodeType.OUTPUT)
+        _initial_nodes: List[Node] = [Node(i, NodeType.INPUT if i < inputs else NodeType.OUTPUT, 0.0)
                                       for i in range(population_size)]
 
         # generate initial population genomes
@@ -44,9 +47,20 @@ class NEAT:
 
         """
 
+    def generate_agent(self, genome: Genome) -> tf.keras.models.Sequential:
+        """read the a genome and generates a neural network for it
+        
+        Arguments:
+            genome {Genome} -- contains the nodes and connection of the genome
+        
+        Returns:
+            tf.keras.models.Sequential -- the network built from that genome
+        """
+        network_weights = []
+        
+        
 
 
 if __name__ == "__main__":
     test = NEAT(2, 2, 1)
-    for g in test.population:
-        print(g)
+    print(test.generate_agent(test.population[0]))
