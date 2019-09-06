@@ -4,6 +4,7 @@ from typing import List
 from itertools import product
 from neural_network import NeuralNetwork
 
+
 class NEAT:
     """manages genomes that will be run by the main simulation"""
 
@@ -18,24 +19,25 @@ class NEAT:
                                       for i in range(inputs + outputs)]
 
         # generate initial population genomes
-        self.population: List[Genome] = [Genome(_initial_nodes, self.__initial_innovations(inputs, outputs)
+        def initial_innovations(inputs: int, outputs: int) -> List[Innovation]:
+            """generate innovations with random weights between -1.0 and 1.0 for each genome
+
+            Arguments:
+                inputs {int} -- input node count
+                outputs {int} -- output node count
+
+            Returns:
+                List[Innovation] -- innovations connecting all input nodes to all output nodes
+                random weights
+            """
+            return [Innovation(idx, i, j+inputs, np.random.random_sample() * 2 - 1, True)
+                    for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
+
+        self.population: List[Genome] = [Genome(_initial_nodes, initial_innovations(inputs, outputs)
                                                 if connected else [])
                                          for _ in range(population_size)]
         self.innovation_counter: int = 0
         self.node_counter: int = 0
-
-    def __initial_innovations(self, inputs: int, outputs: int) -> List[Innovation]:
-        """generate innovations with random weights between -1.0 and 1.0 for each genome
-
-        Arguments:
-            inputs {int} -- input node count
-            outputs {int} -- output node count
-
-        Returns:
-            List[Innovation] -- innovations connecting all input nodes to all output nodes random weights
-        """
-        return [Innovation(idx, i, j+inputs, np.random.random_sample() * 2 - 1, True)
-                for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
 
     def new_generation(self, genome_scores: List[float]) -> None:
         """updates the genome population using speciation, crossover and mutations
@@ -48,15 +50,14 @@ class NEAT:
 
     def generate_agent(self, genome: Genome) -> NeuralNetwork:
         """read the a genome and generates a neural network for it
-        
+
         Arguments:
             genome {Genome} -- contains the nodes and connection of the genome
-        
+
         Returns:
-            tf.keras.models.Sequential -- the network built from that genome
+            NeuralNetwork -- the network built from that genome
         """
-        
-        
+        return NeuralNetwork(genome)
 
 
 if __name__ == "__main__":
