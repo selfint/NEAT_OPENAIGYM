@@ -2,8 +2,7 @@ import numpy as np
 from data_types import Innovation, Node, Genome, NodeType
 from typing import List
 from itertools import product
-import tensorflow as tf
-
+from neural_network import NeuralNetwork
 
 class NEAT:
     """manages genomes that will be run by the main simulation"""
@@ -16,7 +15,7 @@ class NEAT:
 
         # generate initial nodes for genomes here since they are the same for all genomes
         _initial_nodes: List[Node] = [Node(i, NodeType.INPUT if i < inputs else NodeType.OUTPUT, 0.0)
-                                      for i in range(population_size)]
+                                      for i in range(inputs + outputs)]
 
         # generate initial population genomes
         self.population: List[Genome] = [Genome(_initial_nodes, self.__initial_innovations(inputs, outputs)
@@ -47,7 +46,7 @@ class NEAT:
 
         """
 
-    def generate_agent(self, genome: Genome) -> tf.keras.models.Sequential:
+    def generate_agent(self, genome: Genome) -> NeuralNetwork:
         """read the a genome and generates a neural network for it
         
         Arguments:
@@ -56,11 +55,12 @@ class NEAT:
         Returns:
             tf.keras.models.Sequential -- the network built from that genome
         """
-        network_weights = []
         
         
 
 
 if __name__ == "__main__":
     test = NEAT(2, 2, 1)
-    print(test.generate_agent(test.population[0]))
+    test_agent = test.population[0]
+    n_test = NeuralNetwork(test_agent.nodes, test_agent.innovations)
+    print(n_test.predict(np.array([1.0, 1.0])))
