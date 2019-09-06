@@ -16,15 +16,16 @@ class NeuralNetwork:
     def __init__(self, genome: Genome, activation: Callable[[float], float] = sigmoid):
         """Creates a neural network object from Node and Innovation objects.
         Output is calculated recursively from the output nodes.
-        
+
         Arguments:
             genome {Genome} -- genome to generate network for
-        
+
         Keyword Arguments:
             activation {function} -- [description] (default: {sigmoid})
         """
-        self.nodes = genome.nodes
-        self.innovations = genome.innovations
+        self.genome = genome
+        self.nodes = genome.nodes.copy()
+        self.innovations = genome.innovations.copy()
         self.input_nodes = [
             node for node in self.nodes if node.role is NodeType.INPUT]
         self.output_nodes = [
@@ -47,39 +48,42 @@ class NeuralNetwork:
                 'length of inputs did not match length of network inputs')
 
         # assign input values to input nodes, use the node bias for this
-        for i in range(len(inputs)):
-            self.input_nodes[i].bias = inputs[i]
+        for i, input_value in enumerate(inputs):
+            self.input_nodes[i].bias = input_value
 
         # get output of output layer
-        return np.array([self.get_node_output(node) for node in self.output_nodes])
+        return np.array([self.get_node_output(node, []) for node in self.output_nodes])
 
-    def get_node_output(self, node: Node) -> float:
+    def get_node_output(self, node: Node, exclude: List[Innovation]) -> float:
         """Calculates the output of a single node, recursively
 
         Arguments:
             node {Node} -- the node to get output from
+            exclude {List[Innovation]} -- innovations to ignore
 
         Returns:
             float -- the output of the node
         """
 
-        return node.bias + self.activation(sum(self.get_node_output(input_node) *
+        return node.bias + self.activation(sum(self.get_node_output(input_node,
+                                                                    [input_innovation] + exclude) *
                                                input_innovation.weight *
                                                input_innovation.enabled
                                                for input_innovation, input_node
-                                               in self.get_node_inputs(node)))
+                                               in self.get_node_inputs(node, exclude)))
 
-    def get_node_inputs(self, node: Node) -> List[Innovation]:
+    def get_node_inputs(self, node: Node, exclude: List[Innovation]) -> List[Innovation]:
         """Returns all inovations that OUTPUT into the node
 
         Arguments:
             node {Node} -- node to find inputs for
+            exclude {List[Innovation]} -- innovations to ignore
 
         Returns:
             List[Innovation] -- all innovations outputing into node
         """
         return [(innovation, self.get_node(innovation.src)) for innovation in self.innovations
-                if innovation.dst == node.idx]
+                if innovation.dst == node.idx and innovation not in exclude]
 
     def get_node(self, node_idx: int) -> Node:
         """Returns node by its idx
@@ -94,3 +98,16 @@ class NeuralNetwork:
             if node.idx == node_idx:
                 return node
         raise ValueError(f'Node with id {node_idx} not in available nodes')
+
+
+if __name__ == "__main__":
+    from itertools import product
+    inputs = 2
+    outputs = 2
+    nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT, 0.0)
+             for idx in range(inputs + outputs)]
+    innovations = [Innovation(idx, i,
+                              j+inputs, np.random.random_sample() * 2 - 1, True)
+                   for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
+    network = NeuralNetwork(Genome(nodes, innovations))
+    print(network.predict(np.random.random(2)))
