@@ -15,9 +15,10 @@ class NEAT:
 
         # nodes and innovations will be managed here, and assigned to genomes at each new generation
         self.nodes = {i: Node(i, NodeType.INPUT if i < inputs else NodeType.OUTPUT, 0.0)
-                         for i in range(inputs + outputs)}
-        self.innovations = {idx: Innovation(idx, i, j+inputs, np.random.random_sample() * 2 - 1, True)
-                               for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))}
+                      for i in range(inputs + outputs)}
+        self.innovations = {idx: Innovation(idx, i,
+                                            j+inputs, np.random.random_sample() * 2 - 1, True)
+                            for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))}
 
         # generate initial population
         self.population: List[Genome] = [Genome(self.nodes.values(), self.innovations.values()
@@ -45,6 +46,6 @@ class NEAT:
 
 
 if __name__ == "__main__":
-    test = NEAT(2, 2, 1)
-    for agent in test.iter_agents():
+    TEST = NEAT(2, 2, 1)
+    for agent in TEST.iter_agents():
         print(agent)

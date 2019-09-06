@@ -1,37 +1,37 @@
 import gym
 import numpy as np
-from neat import NEAT
 import matplotlib.pyplot as plt
+from neat import NEAT
 
 
-env = gym.make("CartPole-v1")
+ENV = gym.make("CartPole-v1")
 POPULATION_SIZE = 10
-INPUTS = env.observation_space.shape[0]
-OUTPUTS = env.action_space.n
-neat_manager = NEAT(POPULATION_SIZE, INPUTS, OUTPUTS)
+INPUTS = ENV.observation_space.shape[0]
+OUTPUTS = ENV.action_space.n
+NEAT_MANAGER = NEAT(POPULATION_SIZE, INPUTS, OUTPUTS)
 ENV_STEPS = 1000
 GENERATIONS = 10
 
-avg_scores = []
+AVG_SCORES = []
 for gen in range(GENERATIONS):
     agent_scores = []
-    for agent in neat_manager.iter_agents():
-        observation = env.reset()
+    for agent in NEAT_MANAGER.iter_agents():
+        observation = ENV.reset()
         score = 0
         for _ in range(ENV_STEPS):
-            env.render()
-            action = agent.predict(np.array(observation)).argmax() # your agent here (this takes random actions)
-            observation, reward, done, info = env.step(action)
+            ENV.render()
+            action = agent.predict(np.array(observation)).argmax()
+            observation, reward, done, info = ENV.step(action)
             score += reward
             if done:
-                observation = env.reset()
+                observation = ENV.reset()
                 break
         agent_scores.append(score)
-    
-    # get a new generation
-    avg_scores.append(np.average(agent_scores))
-    neat_manager.new_generation(agent_scores)
-env.close()
 
-plt.plot(range(1, GENERATIONS+1), avg_scores)
+    # get a new generation
+    AVG_SCORES.append(np.average(agent_scores))
+    NEAT_MANAGER.new_generation(agent_scores)
+ENV.close()
+
+plt.plot(range(1, GENERATIONS+1), AVG_SCORES)
 plt.show()
