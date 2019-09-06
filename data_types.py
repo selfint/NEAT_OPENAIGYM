@@ -25,7 +25,7 @@ class Node:
     bias: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class Genome:
     nodes: List[Node]
     innovations: List[Innovation]
