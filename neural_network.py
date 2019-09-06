@@ -13,7 +13,7 @@ class NeuralNetwork:
 
     """
 
-    def __init__(self, genome: Genome, activation: Callable[float, float] = sigmoid):
+    def __init__(self, genome: Genome, activation: Callable[[float], float] = sigmoid):
         """Creates a neural network object from Node and Innovation objects.
         Output is calculated recursively from the output nodes.
         
@@ -51,7 +51,7 @@ class NeuralNetwork:
             self.input_nodes[i].bias = inputs[i]
 
         # get output of output layer
-        return [self.get_node_output(node) for node in self.output_nodes]
+        return np.array([self.get_node_output(node) for node in self.output_nodes])
 
     def get_node_output(self, node: Node) -> float:
         """Calculates the output of a single node, recursively
