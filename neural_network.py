@@ -24,8 +24,10 @@ class NeuralNetwork:
             activation {function} -- [description] (default: {sigmoid})
         """
         self.genome = genome
-        self.nodes = genome.nodes.copy()
-        self.innovations = genome.innovations.copy()
+
+        # copy nodes and innovations so the genome remains unchanged
+        self.nodes = list(genome.nodes)
+        self.innovations = list(genome.innovations)
         self.input_nodes = [
             node for node in self.nodes if node.role is NodeType.INPUT]
         self.output_nodes = [
@@ -102,12 +104,12 @@ class NeuralNetwork:
 
 if __name__ == "__main__":
     from itertools import product
-    inputs = 2
-    outputs = 2
+    inputs = 5
+    outputs = 5
     nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT, 0.0)
              for idx in range(inputs + outputs)]
     innovations = [Innovation(idx, i,
                               j+inputs, np.random.random_sample() * 2 - 1, True)
                    for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
     network = NeuralNetwork(Genome(nodes, innovations))
-    print(network.predict(np.random.random(2)))
+    print(network.predict(np.random.random(inputs)))

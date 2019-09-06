@@ -1,10 +1,10 @@
-from typing import List
+from typing import Tuple
 from dataclasses import dataclass
 from enum import Enum
 
 
-@dataclass
-class Innovation:
+@dataclass(unsafe_hash=True)
+class Innovation():
     idx: int
     src: int
     dst: int
@@ -18,7 +18,7 @@ class NodeType(Enum):
     OUTPUT = 'output'
 
 
-@dataclass
+@dataclass(unsafe_hash=True)
 class Node:
     idx: int
     role: NodeType
@@ -27,5 +27,5 @@ class Node:
 
 @dataclass(frozen=True)
 class Genome:
-    nodes: List[Node]
-    innovations: List[Innovation]
+    nodes: Tuple[Node]
+    innovations: Tuple[Innovation]
