@@ -2,7 +2,7 @@ from typing import List, Iterator, Dict, Tuple
 from itertools import product
 import numpy as np
 from data_types import Innovation, Node, Genome, NodeType
-from neural_network import NeuralNetwork, genome
+from neural_network import NeuralNetwork
 
 
 class NEAT:
@@ -127,7 +127,7 @@ class NEAT:
                     disjoint.append(idx)
         return matching, disjoint, excess
 
-    def calc_fitness(self, genome_scores: List[Tuple[Genome, float]]) -> Dict[genome, float]:
+    def calc_fitness(self, genome_scores: List[Tuple[Genome, float]]) -> Dict[Genome, float]:
         """Calculates the fitness of each genome using fitness-sharing in each species
         
         Arguments:
@@ -142,7 +142,7 @@ class NEAT:
             genome_fitness[genome] /= len(self.get_genome_species(genome))
         return genome_fitness
     
-    def calc_species_fitness(self, genome_fitness: Dict[genome, float]) -> Dict[genome, float]:
+    def calc_species_fitness(self, genome_fitness: Dict[Genome, float]) -> Dict[Genome, float]:
         """Calculates the total fitness of each species
         
         Arguments:
@@ -159,7 +159,7 @@ class NEAT:
             species_fitness[species] = fitness
         return species_fitness
 
-    def calc_child_amounts(self, species_fitness: Dict[genome, float]) -> Dict[Genome, int]:
+    def calc_child_amounts(self, species_fitness: Dict[Genome, float]) -> Dict[Genome, int]:
         # assign new children amount to each species
         total_fitness = sum(species_fitness.values())
         species_children = dict()
@@ -222,6 +222,20 @@ class NEAT:
         # previous generation
         self.species = children_species
 
+    def get_parent(self, species: Genome, genome_fitness: Dict[Genome, float], ignore: Genome = None) -> Genome:
+        """Returns a parent based on the species and the genome fitness levels
+        
+        Arguments:
+            species {Genome} -- species to choose from (unless interspecies mating happened)
+            genome_fitness {Dict[Genome, float]} -- each genome and its fitness
+        
+        Returns:
+            Genome -- parent chosen
+        """
+        return np.random.choice(
+            [genome for genome in self.species[species] if genome is not ignore
+             or len(self.species[species]) == 1])
+
     def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
         """Generates a new child for a given species
 
@@ -234,10 +248,8 @@ class NEAT:
 
         # select two parents from that species
         # TODO add interspecies crossover
-        parent_a: Genome = np.random.choice(self.species[species])
-        parent_b: Genome = np.random.choice(
-            [genome for genome in self.species[species] if genome is not parent_a
-             or len(self.species[species]) == 1])
+        parent_a: Genome = self.get_parent(species, genome_fitness)
+        parent_b: Genome = self.get_parent(species, genome_fitness, parent_a)
 
         # perform crossover
         matching, disjoint, excess = self.get_diff(parent_a, parent_b)
@@ -299,6 +311,14 @@ class NEAT:
         for genome in self.population:
             yield NeuralNetwork(genome)
 
+    def print_status(self, verbose: int = 1):
+        """Prints the status of the algorithm
+        
+        Keyword Arguments:
+            verbose {int} -- verbosity_level (default: {1})
+        """
+        if verbose == 1:
+            print(f"Total Species: {len(self.species)}")
 
 if __name__ == "__main__":
     TEST = NEAT(2, 5, 5, {'c1': 2.0, 'c2': 2.0, 'c3': 2.0, 't': 15.0})
