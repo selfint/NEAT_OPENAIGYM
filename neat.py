@@ -47,7 +47,6 @@ class NEAT:
             Dict[Genome, List[Genome]] -- species representative and its species
         """
         species = dict()
-
         for genome in self.population:
 
             # add genome to species that has a rep with similiar genes to it
@@ -96,7 +95,8 @@ class NEAT:
             (c2 * len(disjoint)) / max_nodes + \
             c3 * delta_weights
 
-    def get_diff(self, a: Genome, b: Genome) -> Tuple[List[int], List[int], List[int]]:
+    @staticmethod
+    def get_diff(a: Genome, b: Genome) -> Tuple[List[int], List[int], List[int]]:
         """Returns the matching, disjoint and excess genes between two genomes
 
         Arguments:
@@ -134,7 +134,7 @@ class NEAT:
         for genome in genome_fitness:
             genome_fitness[genome] /= len(self.get_genome_species(genome))
 
-        # generate new genome species reps from previous generation
+        # generate new genome species reps from current generation
         self.species = self.split_population()
 
         # generate new creatures for each species based on that species fitness
@@ -170,13 +170,20 @@ class NEAT:
 
         # generate new children for each species
         children = []
+        children_species = {species: [] for species in species_children}
         for species in species_children:
             for _ in range(species_children[species]):
                 child = self.get_new_child(species, genome_fitness)
                 children.append(child)
+                children_species[species].append(child)
         
         # re-assign population to children
         self.population = children
+
+        # re-assign species so that each species is represented by a genome from the 
+        # previous generation
+        self.species = children_species
+
 
     def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
         """Generates a new child for a given species
