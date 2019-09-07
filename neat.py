@@ -232,9 +232,11 @@ class NEAT:
         Returns:
             Genome -- parent chosen
         """
-        return np.random.choice(
-            [genome for genome in self.species[species] if genome is not ignore
-             or len(self.species[species]) == 1])
+        options = [genome for genome in self.species[species] if genome is not ignore
+             or len(self.species[species]) == 1]
+        probs = np.array([genome_fitness[genome] for genome in options])
+        probs /= sum(probs)
+        return np.random.choice(options, p=probs)
 
     def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
         """Generates a new child for a given species
@@ -248,6 +250,7 @@ class NEAT:
 
         # select two parents from that species
         # TODO add interspecies crossover
+        # TODO finish get parent
         parent_a: Genome = self.get_parent(species, genome_fitness)
         parent_b: Genome = self.get_parent(species, genome_fitness, parent_a)
 
