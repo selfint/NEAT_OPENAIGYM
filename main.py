@@ -34,7 +34,7 @@ for gen in range(GENERATIONS):
     # get a new generation
     AVG_SCORES.append(np.average(score_hist))
     NEAT_MANAGER.new_generation(agent_scores)
-    
+
 ENV.close()
 
 plt.plot(range(1, GENERATIONS+1), AVG_SCORES)

@@ -4,8 +4,6 @@ import numpy as np
 from data_types import Innovation, Node, Genome, NodeType
 from neural_network import NeuralNetwork
 
-# TODO: implement mutation and crossover
-
 
 class NEAT:
     """Manages genomes using the NEAT algorithm"""
@@ -24,7 +22,7 @@ class NEAT:
 
         # generate initial population
         self.population: List[Genome] = []
-        for temp in range(population_size):
+        for _ in range(population_size):
             nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT,
                           np.random.random_sample() * 2 - 1)
                      for idx in range(inputs + outputs)]
@@ -135,8 +133,36 @@ class NEAT:
         # generate new genome species reps from previous generation
         self.species = self.split_population()
 
-        print('new generation---------------')
-        print(len(self.species))
+        # generate new creatures for each species based on that species fitness
+        species_fitness = dict()
+        for species in self.species:
+            fitness = 0
+            for genome in self.species[species]:
+                fitness += genome_fitness[genome]
+            species_fitness[species] = fitness
+
+        # assign new children amount to each species
+        total_fitness = sum(species_fitness.values())
+        species_children = dict()
+        for species in species_fitness:
+            new_children = species_fitness[species] / total_fitness
+            species_children[species] = round(
+                new_children * self.population_size)
+
+        # limit new children to population size
+        ignore = []
+        while sum(species_children.values()) != self.population_size:
+            if sum(species_children.values()) < self.population_size:
+                options = [species for species in species_children
+                           if species not in ignore]
+                chosen = np.random.choice(list(species_children.keys()))
+                species_children[chosen] += 1
+            else:
+                options = [species for species in species_children
+                           if species_children[species] > 0 and species not in ignore]
+                chosen = np.random.choice(options)
+                species_children[chosen] -= 1
+            ignore.append(chosen)
 
     def get_genome_species(self, genome: Genome) -> List[Genome]:
         """Returns all the genomes in the species of a given genom
