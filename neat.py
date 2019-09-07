@@ -2,7 +2,7 @@ from typing import List, Iterator, Dict, Tuple
 from itertools import product
 import numpy as np
 from data_types import Innovation, Node, Genome, NodeType
-from neural_network import NeuralNetwork
+from neural_network import NeuralNetwork, genome
 
 
 class NEAT:
@@ -127,24 +127,39 @@ class NEAT:
                     disjoint.append(idx)
         return matching, disjoint, excess
 
-    def new_generation(self, genome_scores: List[Tuple[Genome, float]]) -> None:
-
-        # assign genome fitness based on fitness sharing within species
+    def calc_fitness(self, genome_scores: List[Tuple[Genome, float]]) -> Dict[genome, float]:
+        """Calculates the fitness of each genome using fitness-sharing in each species
+        
+        Arguments:
+            genome_scores {List[Tuple[Genome, float]]} -- the score each genome 
+            recieved from the environment
+        
+        Returns:
+            Dict[genome, float] -- each genome and its adjusted score
+        """
         genome_fitness = {genome: score for (genome, score) in genome_scores}
         for genome in genome_fitness:
             genome_fitness[genome] /= len(self.get_genome_species(genome))
-
-        # generate new genome species reps from current generation
-        self.species = self.split_population()
-
-        # generate new creatures for each species based on that species fitness
+        return genome_fitness
+    
+    def calc_species_fitness(self, genome_fitness: Dict[genome, float]) -> Dict[genome, float]:
+        """Calculates the total fitness of each species
+        
+        Arguments:
+            genome_fitness {Dict[genome, float]} -- each genome and its fitness
+        
+        Returns:
+            Dict[genome, float] -- each species rep and its species fitness
+        """
         species_fitness = dict()
         for species in self.species:
             fitness = 0
             for genome in self.species[species]:
                 fitness += genome_fitness[genome]
             species_fitness[species] = fitness
+        return species_fitness
 
+    def calc_child_amounts(self, species_fitness: Dict[genome, float]) -> Dict[Genome, int]:
         # assign new children amount to each species
         total_fitness = sum(species_fitness.values())
         species_children = dict()
@@ -168,6 +183,29 @@ class NEAT:
                 species_children[chosen] -= 1
             ignore.append(chosen)
 
+        return species_children
+
+    def new_generation(self, genome_scores: List[Tuple[Genome, float]]) -> None:
+        """Generates a new generation 
+        
+        Arguments:
+            genome_scores {List[Tuple[Genome, float]]} -- the score each genome 
+            recieved from the environment
+        
+        Returns:
+            None -- sets the population and species dicts of self
+        """
+
+        # assign genome fitness based on fitness sharing within species
+        genome_fitness = self.calc_fitness(genome_scores)
+
+        # generate new genome species reps from current generation
+        self.species = self.split_population()
+
+        # generate new creatures for each species based on that species fitness
+        species_fitness = self.calc_species_fitness(genome_fitness)
+        species_children = self.calc_child_amounts(species_fitness)
+
         # generate new children for each species
         children = []
         children_species = {species: [] for species in species_children}
@@ -183,7 +221,6 @@ class NEAT:
         # re-assign species so that each species is represented by a genome from the 
         # previous generation
         self.species = children_species
-
 
     def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
         """Generates a new child for a given species
