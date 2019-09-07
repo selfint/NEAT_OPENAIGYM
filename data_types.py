@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True)
 class Innovation():
     idx: int
     src: int
@@ -18,11 +18,10 @@ class NodeType(Enum):
     OUTPUT = 'output'
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True)
 class Node:
     idx: int
     role: NodeType
-    bias: float
 
 
 @dataclass(frozen=True)
