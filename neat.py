@@ -8,26 +8,31 @@ from neural_network import NeuralNetwork
 class NEAT:
     """Manages genomes using the NEAT algorithm"""
 
+    # pylint: disable=too-many-instance-attributes
+
     def __init__(self, population_size: int, inputs: int, outputs: int,
                  speciation_consts: Dict[str, float]):
         self.population_size = population_size
         self.inputs = inputs
         self.outputs = outputs
 
-        # nodes and innovations will be managed here, and assigned to genomes at each new generation
-        self.nodes = {idx: Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT, 0.0)
-                      for idx in range(inputs + outputs)}
-        self.innovations = {idx: Innovation(idx, i, j+inputs, 0.0, True)
-                            for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))}
+        # nodes and innovations metadata will be saved here
+        # and the actual values stored inside each genome
+        self.nodes: Dict[int, NodeType] = {idx: NodeType.INPUT if idx < inputs else NodeType.OUTPUT
+                                           for idx in range(inputs + outputs)}
+        self.innovations: Dict[int, Tuple[int, int]] = {idx: (i, j+inputs)
+                                                        for idx, (i, j)
+                                                        in enumerate(product(range(inputs),
+                                                                             range(outputs)))}
 
         # generate initial population
         self.population: List[Genome] = []
         for _ in range(population_size):
-            nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT,
-                          np.random.random_sample() * 2 - 1)
-                     for idx in range(inputs + outputs)]
-            innovations = [Innovation(idx, i, j+inputs, np.random.random_sample() * 2 - 1, True)
-                           for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
+            nodes = [Node(idx, node_role)
+                     for idx, node_role in self.nodes.items()]
+            innovations = [Innovation(idx, src, dst,
+                                      np.random.random_sample(), True)
+                           for idx, (src, dst) in self.innovations.items()]
             self.population.append(Genome(tuple(nodes), tuple(innovations)))
 
         # initial population is just one species
@@ -91,8 +96,7 @@ class NEAT:
             (c2 * len(disjoint)) / max_nodes + \
             c3 * delta_weights
 
-    def get_diff(self, a: Genome, b: Genome) -> Tuple[List[Innovation],
-                                                      List[Innovation], List[Innovation]]:
+    def get_diff(self, a: Genome, b: Genome) -> Tuple[List[int], List[int], List[int]]:
         """Returns the matching, disjoint and excess genes between two genomes
 
         Arguments:
@@ -163,6 +167,69 @@ class NEAT:
                 chosen = np.random.choice(options)
                 species_children[chosen] -= 1
             ignore.append(chosen)
+
+        # generate new children for each species
+        children = []
+        for species in species_children:
+            for _ in range(species_children[species]):
+                child = self.get_new_child(species, genome_fitness)
+                children.append(child)
+        
+        # re-assign population to children
+        self.population = children
+
+    def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
+        """Generates a new child for a given species
+
+        Arguments:
+            species {Genome} -- species rep of the given species
+
+        Returns:
+            Genome -- genome of the new child
+        """
+
+        # select two parents from that species
+        # TODO add interspecies crossover
+        parent_a: Genome = np.random.choice(self.species[species])
+        parent_b: Genome = np.random.choice(
+            [genome for genome in self.species[species] if genome is not parent_a
+             or len(self.species[species]) == 1])
+
+        # perform crossover
+        matching, disjoint, excess = self.get_diff(parent_a, parent_b)
+        child_innovations = []
+        a_innovations = {inn.idx: inn for inn in parent_a.innovations}
+        b_innovations = {inn.idx: inn for inn in parent_b.innovations}
+
+        # crossover matching innovations
+        for idx in matching:
+            if np.random.random_sample() < 0.5:
+                weight = a_innovations[idx].weight
+                enabled = a_innovations[idx].enabled
+            else:
+                weight = b_innovations[idx].weight
+                enabled = b_innovations[idx].enabled
+            src, dst = self.innovations[idx]
+            innovation = Innovation(idx, src, dst, weight, enabled)
+            child_innovations.append(innovation)
+
+        # crossover disjoint and excess genes
+        for idx in disjoint + excess:
+            print(idx)
+            # TODO implement disjint and excess gene crossover
+
+        # get necassary nodes from resulting innovations
+        child_node_idxs = []
+        for innovation in child_innovations:
+            child_node_idxs.append(innovation.src)
+            child_node_idxs.append(innovation.dst)
+        child_nodes = []
+        for idx in set(child_node_idxs):
+            child_nodes.append(Node(idx, self.nodes[idx]))
+
+        # generate child genome
+        child = Genome(tuple(child_nodes), tuple(child_innovations))
+        return child
 
     def get_genome_species(self, genome: Genome) -> List[Genome]:
         """Returns all the genomes in the species of a given genom
