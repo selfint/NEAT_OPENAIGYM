@@ -1,4 +1,4 @@
-from typing import List, Callable
+from typing import List, Callable, Tuple
 import numpy as np
 from data_types import Node, Innovation, NodeType, Genome
 from activations import sigmoid, relu
@@ -72,13 +72,13 @@ class NeuralNetwork:
             return self.inputs[node]
 
         return self.activation(sum(self.get_node_output(input_node,
-                                                                    [input_innovation] + exclude) *
-                                               input_innovation.weight *
-                                               input_innovation.enabled
-                                               for input_innovation, input_node
-                                               in self.get_node_inputs(node, exclude)))
+                                                        [input_innovation] + exclude) *
+                                   input_innovation.weight *
+                                   int(input_innovation.enabled)
+                                   for input_innovation, input_node
+                                   in self.get_node_inputs(node, exclude)))
 
-    def get_node_inputs(self, node: Node, exclude: List[Innovation]) -> List[Innovation]:
+    def get_node_inputs(self, node: Node, exclude: List[Innovation]) -> List[Tuple[Innovation, Node]]:
         """Returns all inovations that OUTPUT into the node
 
         Arguments:
