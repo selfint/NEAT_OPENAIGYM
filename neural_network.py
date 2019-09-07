@@ -1,7 +1,7 @@
 from typing import List, Callable
 import numpy as np
 from data_types import Node, Innovation, NodeType, Genome
-from activations import sigmoid
+from activations import sigmoid, relu
 
 
 class NeuralNetwork:
@@ -26,13 +26,14 @@ class NeuralNetwork:
         self.genome = genome
 
         # copy nodes and innovations so the genome remains unchanged
-        self.nodes = list(genome.nodes)
-        self.innovations = list(genome.innovations)
+        self.nodes = self.genome.nodes
+        self.innovations = self.genome.innovations
         self.input_nodes = [
             node for node in self.nodes if node.role is NodeType.INPUT]
         self.output_nodes = [
             node for node in self.nodes if node.role is NodeType.OUTPUT]
         self.activation = activation
+        self.inputs = dict()
 
     def predict(self, inputs: np.array) -> np.array:
         """Calculates the output of the network given an input
@@ -49,9 +50,10 @@ class NeuralNetwork:
             raise ValueError(
                 'length of inputs did not match length of network inputs')
 
-        # assign input values to input nodes, use the node bias for this
-        for i, input_value in enumerate(inputs):
-            self.input_nodes[i].bias = input_value
+        # assign input to input nodes
+        self.inputs = dict()
+        for i, node in enumerate(self.input_nodes):
+            self.inputs[node] = inputs[i]
 
         # get output of output layer
         return np.array([self.get_node_output(node, []) for node in self.output_nodes])
@@ -66,8 +68,10 @@ class NeuralNetwork:
         Returns:
             float -- the output of the node
         """
+        if node.role is NodeType.INPUT:
+            return self.inputs[node]
 
-        return node.bias + self.activation(sum(self.get_node_output(input_node,
+        return self.activation(sum(self.get_node_output(input_node,
                                                                     [input_innovation] + exclude) *
                                                input_innovation.weight *
                                                input_innovation.enabled
@@ -106,10 +110,12 @@ if __name__ == "__main__":
     from itertools import product
     inputs = 5
     outputs = 5
-    nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT, 0.0)
+    nodes = [Node(idx, NodeType.INPUT if idx < inputs else NodeType.OUTPUT)
              for idx in range(inputs + outputs)]
     innovations = [Innovation(idx, i,
                               j+inputs, np.random.random_sample() * 2 - 1, True)
                    for idx, (i, j) in enumerate(product(range(inputs), range(outputs)))]
-    network = NeuralNetwork(Genome(nodes, innovations))
+    genome = Genome(tuple(nodes), tuple(innovations))
+    network = NeuralNetwork(genome)
     print(network.predict(np.random.random(inputs)))
+    print(genome.nodes)
