@@ -24,6 +24,7 @@ class NEAT:
                                                         for idx, (i, j)
                                                         in enumerate(product(range(inputs),
                                                                              range(outputs)))}
+        # self.innovations: Dict[int, Tuple[int, int]] = dict()
 
         # generate initial population
         self.population: List[Genome] = []
@@ -38,6 +39,9 @@ class NEAT:
         # initial population is just one species
         self.speciation_consts = speciation_consts
         self.species: Dict[Genome, List[Genome]] = self.split_population()
+
+        # keep track of all innovation splitting
+        self.innovation_splits = dict()
 
     def split_population(self) -> Dict[Genome, List[Genome]]:
         """Splits the population into species based on genetic distance from
@@ -80,6 +84,8 @@ class NEAT:
 
         # get max nodes
         max_nodes = float(max(len(a.nodes), len(b.nodes)))
+        if max_nodes < 20:
+            max_nodes = 1.0
 
         # split innovation into matching, disjoint and excess genes
         matching, disjoint, excess = self.get_diff(a, b)
@@ -89,11 +95,15 @@ class NEAT:
         b_innovations_dict = {inn.idx: inn for inn in b.innovations}
         delta_weights = [a_innovations_dict[idx].weight - b_innovations_dict[idx].weight
                          for idx in matching]
-        delta_weights = abs(np.average(delta_weights))
+        if delta_weights:
+            delta_weights = abs(np.average(delta_weights))
+        else:
+            delta_weights = 0
+
         # calculate genetic distance
-        return (c1 * len(excess)) / max_nodes + \
-            (c2 * len(disjoint)) / max_nodes + \
+        genetic_distance = (c1 * len(excess)) / max_nodes + (c2 * len(disjoint)) / max_nodes + \
             c3 * delta_weights
+        return genetic_distance
 
     @staticmethod
     def get_diff(a: Genome, b: Genome) -> Tuple[List[int], List[int], List[int]]:
@@ -108,23 +118,26 @@ class NEAT:
             excess genes in that order
         """
         matching, disjoint, excess = [], [], []
-        a_innovations, b_innovations = \
-            [innovation.idx for innovation in a.innovations], \
-            [innovation.idx for innovation in b.innovations]
-        for idx in range(max(len(a_innovations),
-                             len(b_innovations))):
+        a_innovations = {inn.idx: inn for inn in a.innovations}
+        b_innovations = {inn.idx: inn for inn in b.innovations}
+        all_innovations = set(list(a_innovations.keys()) +
+                              list(b_innovations.keys()))
+
+        for idx in all_innovations:
             if idx in a_innovations and idx in b_innovations:
                 matching.append(idx)
-            elif idx in a_innovations:
-                if idx > max(b_innovations):
-                    excess.append(idx)
-                else:
-                    disjoint.append(idx)
             else:
-                if idx > max(a_innovations):
-                    excess.append(idx)
-                else:
-                    disjoint.append(idx)
+                if idx in a_innovations:
+                    if b_innovations and idx > max(b_innovations):
+                        excess.append(idx)
+                    else:
+                        disjoint.append(idx)
+                else:  # idx in b innovations and not in a innovations
+                    if a_innovations and idx > max(a_innovations):
+                        excess.append(idx)
+                    else:
+                        disjoint.append(idx)
+
         return matching, disjoint, excess
 
     def calc_fitness(self, genome_scores: List[Tuple[Genome, float]]) -> Dict[Genome, float]:
@@ -165,8 +178,8 @@ class NEAT:
         species_children = dict()
         for species in species_fitness:
             new_children = species_fitness[species] / total_fitness
-            species_children[species] = round(
-                new_children * self.population_size)
+            species_children[species] = int(round(
+                new_children * self.population_size))
 
         # limit new children to population size
         ignore = []
@@ -278,13 +291,20 @@ class NEAT:
             innovation = Innovation(idx, src, dst, weight, enabled)
             child_innovations.append(innovation)
 
+        # get more fit parent
+        fit_parent = max([parent_a, parent_b], key=lambda x: genome_fitness[x])
+        fit_innovations = {inn.idx: inn for inn in fit_parent.innovations}
+
         # crossover disjoint and excess genes
         for idx in disjoint + excess:
-            print(idx)
-            # TODO implement disjint and excess gene crossover
+            if idx in fit_innovations:
+                parent_inn = fit_innovations[idx]
+                innovation = Innovation(idx, parent_inn.src, parent_inn.dst,
+                                        parent_inn.weight, parent_inn.enabled)
+                child_innovations.append(innovation)
 
         # get necassary nodes from resulting innovations
-        child_node_idxs = []
+        child_node_idxs = [idx for idx in range(self.inputs + self.outputs)]
         for innovation in child_innovations:
             child_node_idxs.append(innovation.src)
             child_node_idxs.append(innovation.dst)
@@ -299,7 +319,6 @@ class NEAT:
         child = self.mutate_genome(child, mutation_consts)
         return child
 
-
     def mutate_genome(self, genome: Genome, mutation_consts: Dict[str, float]) -> Genome:
         """Mutates a genome with any of the following mutations:
         1. Mutate a weight value
@@ -313,56 +332,99 @@ class NEAT:
         Returns:
             Genome -- the mutated genome
         """
+        new_genome = genome
 
-        # weight mutation
-        if np.random.random_sample() < mutation_consts['weight']:
-            chosen = np.random.choice(genome.innovations)
+        # 1. change weight mutation
+        if np.random.random_sample() < mutation_consts['weight'] and new_genome.innovations:
+            chosen = np.random.choice(new_genome.innovations)
             new_innovation = Innovation(chosen.idx, chosen.src, chosen.dst,
                                         np.random.random_sample() * 2 - 1, chosen.enabled)
             new_innovations = [new_innovation if inn.idx == new_innovation.idx else inn
-                               for inn in genome.innovations]
-            new_genome = Genome(genome.nodes, tuple(new_innovations))
-            return new_genome
+                               for inn in new_genome.innovations]
+            new_genome = Genome(new_genome.nodes, tuple(new_innovations))
 
-        # connection mutation
+        # 2. add connection mutation
         if np.random.random_sample() < mutation_consts['connection']:
             # get all connections outputing from the chosen source node
             connections = []
-            for innovation in genome.innovations:
+            for innovation in new_genome.innovations:
                 connections.append((innovation.src, innovation.dst))
-            
+
             # get all available new connections in genome
             options = []
-            for src_node in genome.nodes:
-                for dst_node in genome.nodes:
-                    if dst_node.role is NodeType.INPUT:
+            for src_node in new_genome.nodes:
+                for dst_node in new_genome.nodes:
+                    if dst_node.role is NodeType.INPUT or (src_node.role is NodeType.OUTPUT and dst_node.role is NodeType.OUTPUT):
                         continue
                     if (src_node.idx, dst_node.idx) not in connections:
                         options.append((src_node, dst_node))
-                    
+
             # if a new connection can be made, choose one
             if options:
-                chosen_src, chosen_dst = options[np.random.randint(0, len(options))]
+                chosen_src, chosen_dst = options[np.random.randint(
+                    0, len(options))]
 
                 # check if innovation already happened
                 for idx, (src, dst) in self.innovations.items():
-                    if src == chosen_src and dst == chosen_dst:
+                    if src == chosen_src.idx and dst == chosen_dst.idx:
                         new_innovation = Innovation(idx, src, dst,
                                                     np.random.random_sample(), True)
                         break
 
                 # if this is the first time, add it to the innovations dict
                 else:
-                    new_innovation = Innovation(max(self.innovations) + 1, chosen_src, chosen_dst,
+                    innovation_idx = 0 if not self.innovations else max(self.innovations) + 1
+                    new_innovation = Innovation(innovation_idx, chosen_src.idx, chosen_dst.idx,
                                                 np.random.random_sample(), True)
-                    self.innovations[new_innovation.idx] = (chosen_src, chosen_dst)
+                    self.innovations[new_innovation.idx] = (
+                        chosen_src.idx, chosen_dst.idx)
 
                 # return mutated genome
-                new_innovations = [new_innovation if inn.idx == new_innovation.idx else inn
-                                    for inn in genome.innovations]
-                new_genome = Genome(genome.nodes, tuple(new_innovations))
+                new_innovations = [inn for inn in new_genome.innovations]
+                new_innovations.append(new_innovation)
+                new_genome = Genome(new_genome.nodes, tuple(new_innovations))
                 return new_genome
-        return genome
+
+        # 3. split connection mutation
+        if np.random.random_sample() < mutation_consts['node'] and new_genome.innovations:
+
+            # choose a connection
+            chosen = np.random.choice(new_genome.innovations)
+
+            # check if connection was split before
+            if chosen in self.innovation_splits:
+                src_innovation_id, split_node_id, dst_innovation_id = self.innovation_splits[
+                    chosen]
+
+            # if not, generate new ids for mutations and log mutation in innovation splits dict
+            else:
+                src_innovation_id = max(self.innovations) + 1
+                dst_innovation_id = max(self.innovations) + 2
+                split_node_id = max(self.nodes) + 1
+                self.innovation_splits[chosen] = (src_innovation_id,
+                                                  split_node_id, dst_innovation_id)
+                self.nodes[split_node_id] = NodeType.HIDDEN
+                self.innovations[src_innovation_id] = (
+                    chosen.src, split_node_id)
+                self.innovations[dst_innovation_id] = (
+                    split_node_id, chosen.dst)
+
+            new_node = Node(split_node_id, NodeType.HIDDEN)
+            new_nodes = new_genome.nodes + (new_node, )
+            src_innovation = Innovation(src_innovation_id,
+                                        chosen.src, split_node_id, 1.0, True)
+            dst_innovation = Innovation(dst_innovation_id,
+                                        split_node_id, chosen.dst, chosen.weight, True)
+            new_innovations = []
+            for innovation in (new_genome.innovations + (src_innovation, dst_innovation)):
+                if innovation is chosen:
+                    new_innovations.append(Innovation(chosen.idx, chosen.src,
+                                                      chosen.dst, chosen.weight, False))
+                else:
+                    new_innovations.append(innovation)
+            new_genome = Genome(new_nodes, tuple(new_innovations))
+            return new_genome
+        return new_genome
 
     def get_genome_species(self, genome: Genome) -> List[Genome]:
         """Returns all the genomes in the species of a given genom
@@ -395,8 +457,17 @@ class NEAT:
             verbose {int} -- verbosity_level (default: {1})
         """
         if verbose == 1:
-            print(f"Total Species: {len(self.species)}")
+            print(
+                f"Total Species: {len(self.species)}\nTotal Nodes: {len(self.nodes)}\nTotal Innovations: {len(self.innovations)}")
 
 
 if __name__ == "__main__":
-    TEST = NEAT(2, 5, 5, {'c1': 2.0, 'c2': 2.0, 'c3': 2.0, 't': 15.0})
+    TEST = NEAT(150, 5, 5, {'c1': 1.0, 'c2': 1.0, 'c3': 1.0, 't': 3.0})
+    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population],
+                        {'weight': 0.4, 'connection': 1, 'node': 0.0})
+    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population],
+                        {'weight': 0.4, 'connection': 1, 'node': 0.0})
+    print(TEST.get_diff(TEST.population[0], TEST.population[1]))
+    print(TEST.genetic_distance(TEST.population[0], TEST.population[1]))
+    print([inn for inn in TEST.population[0].innovations])
+    print([inn for inn in TEST.population[1].innovations])
