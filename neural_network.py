@@ -1,7 +1,7 @@
 from typing import List, Callable, Tuple
 import numpy as np
 from data_types import Node, Innovation, NodeType, Genome
-from activations import sigmoid, relu
+from activations import steep_sigmoid
 
 
 class NeuralNetwork:
@@ -13,7 +13,7 @@ class NeuralNetwork:
 
     """
 
-    def __init__(self, genome: Genome, activation: Callable[[float], float] = sigmoid):
+    def __init__(self, genome: Genome, activation: Callable[[float], float] = steep_sigmoid):
         """Creates a neural network object from Node and Innovation objects.
         Output is calculated recursively from the output nodes.
 
@@ -21,8 +21,9 @@ class NeuralNetwork:
             genome {Genome} -- genome to generate network for
 
         Keyword Arguments:
-            activation {function} -- [description] (default: {sigmoid})
+            activation {function} -- node activation function (default: {steep_sigmoid})
         """
+        # TODO add bias node
         self.genome = genome
 
         # copy nodes and innovations so the genome remains unchanged

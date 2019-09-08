@@ -9,7 +9,9 @@ POPULATION_SIZE = 150
 INPUTS = ENV.observation_space.shape[0]
 OUTPUTS = ENV.action_space.n
 SPECIATION_CONSTS = {'c1': 1.0, 'c2': 1.0, 'c3': 0.4, 't': 3.0}
-MUTATION_CONSTS = {'weight': 0.4, 'connection': 0.05, 'node': 0.03}
+MUTATION_CONSTS = {'weight': 0.4, 'connection': 0.05, 'node': 0.03,
+                   'enable_disabled_connection': 0.25, 'no_crossover': 0.25,
+                   'interspecies_mating': 0.001}
 ENV_STEPS = 1000
 GENERATIONS = 30
 RUNS = 1
@@ -24,8 +26,7 @@ for run in range(RUNS):
             observation = ENV.reset()
             score = 201
             for _ in range(ENV_STEPS):
-                if gen == GENERATIONS - 1:
-                    ENV.render()
+                # ENV.render()
                 action = agent.predict(np.array(observation)).argmax()
                 observation, reward, done, info = ENV.step(action)
                 score += reward

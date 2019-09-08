@@ -270,11 +270,42 @@ class NEAT:
         """
 
         # select two parents from that species
-        # TODO add interspecies crossover
         parent_a: Genome = self.get_parent(species, genome_fitness)
-        parent_b: Genome = self.get_parent(species, genome_fitness, parent_a)
+
+        if np.random.random_sample() < mutation_consts['interspecies_mating'] \
+                and len(self.species) > 1:
+            parent_b_species = np.random.choice([spec for spec in self.species
+                                                 if spec is not species])
+        else:
+            parent_b_species = species
+        parent_b: Genome = self.get_parent(
+            parent_b_species, genome_fitness, parent_a)
 
         # perform crossover
+        if np.random.random_sample() < mutation_consts['no_crossover']:
+            child = parent_a
+        else:
+            child = self.crossover_genomes(
+                parent_a, parent_b, genome_fitness, mutation_consts)
+
+        # mutate child
+        child = self.mutate_genome(child, mutation_consts)
+        return child
+
+    def crossover_genomes(self, parent_a: Genome, parent_b: Genome,
+                          genome_fitness: Dict[Genome, float],
+                          mutation_consts: Dict[str, float]) -> Genome:
+        """Performs crossover with two genomes and generates a child genome
+
+        Arguments:
+            parent_a {Genome} -- first parent
+            parent_b {Genome} -- second parent
+            genome_fitness {Dict[Genome, float]} -- each genome and its fitness
+            mutation_consts {Dict[str, float]} -- mutation probabilities
+
+        Returns:
+            Genome -- child genome
+        """
         matching, disjoint, excess = self.get_diff(parent_a, parent_b)
         child_innovations = []
         a_innovations = {inn.idx: inn for inn in parent_a.innovations}
@@ -289,6 +320,10 @@ class NEAT:
                 weight = b_innovations[idx].weight
                 enabled = b_innovations[idx].enabled
             src, dst = self.innovations[idx]
+
+            if np.random.random_sample() < mutation_consts['enable_disabled_connection'] \
+                    and not enabled:
+                enabled = True
             innovation = Innovation(idx, src, dst, weight, enabled)
             child_innovations.append(innovation)
 
@@ -315,9 +350,6 @@ class NEAT:
 
         # generate child genome
         child = Genome(tuple(child_nodes), tuple(child_innovations))
-
-        # mutate child
-        child = self.mutate_genome(child, mutation_consts)
         return child
 
     def mutate_genome(self, genome: Genome, mutation_consts: Dict[str, float]) -> Genome:
@@ -374,7 +406,8 @@ class NEAT:
 
                 # if this is the first time, add it to the innovations dict
                 else:
-                    innovation_idx = 0 if not self.innovations else max(self.innovations) + 1
+                    innovation_idx = 0 if not self.innovations else max(
+                        self.innovations) + 1
                     new_innovation = Innovation(innovation_idx, chosen_src.idx, chosen_dst.idx,
                                                 np.random.random_sample(), True)
                     self.innovations[new_innovation.idx] = (
