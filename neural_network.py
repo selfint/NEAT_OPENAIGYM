@@ -23,7 +23,6 @@ class NeuralNetwork:
         Keyword Arguments:
             activation {function} -- node activation function (default: {steep_sigmoid})
         """
-        # TODO add bias node
         self.genome = genome
 
         # copy nodes and innovations so the genome remains unchanged
@@ -69,8 +68,14 @@ class NeuralNetwork:
         Returns:
             float -- the output of the node
         """
+
+        # input nodes represent the network input
         if node.role is NodeType.INPUT:
             return self.inputs[node]
+        
+        # bias node that always outputs one
+        if node.role is NodeType.BIAS:
+            return 1.0
 
         return self.activation(sum(self.get_node_output(input_node,
                                                         [input_innovation] + exclude) *

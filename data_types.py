@@ -16,6 +16,7 @@ class NodeType(Enum):
     INPUT = 'input'
     HIDDEN = 'hidden'
     OUTPUT = 'output'
+    BIAS = 'bias'
 
 
 @dataclass(frozen=True)

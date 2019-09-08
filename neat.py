@@ -8,8 +8,6 @@ from neural_network import NeuralNetwork
 class NEAT:
     """Manages genomes using the NEAT algorithm"""
 
-    # pylint: disable=too-many-instance-attributes
-
     def __init__(self, population_size: int, inputs: int, outputs: int,
                  speciation_consts: Dict[str, float]):
         self.population_size = population_size
@@ -20,6 +18,9 @@ class NEAT:
         # and the actual values stored inside each genome
         self.nodes: Dict[int, NodeType] = {idx: NodeType.INPUT if idx < inputs else NodeType.OUTPUT
                                            for idx in range(inputs + outputs)}
+
+        # add bias node
+        self.nodes[-1] = NodeType.BIAS
         self.innovations: Dict[int, Tuple[int, int]] = {idx: (i, j+inputs)
                                                         for idx, (i, j)
                                                         in enumerate(product(range(inputs),
