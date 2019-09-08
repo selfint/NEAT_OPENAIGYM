@@ -26,7 +26,7 @@ class Node:
 
 @dataclass(frozen=True)
 class Genome:
-    nodes: Tuple[Node]
-    innovations: Tuple[Innovation]
+    nodes: Tuple[Node, ...]
+    innovations: Tuple[Innovation, ...]
 
     # TODO add __getitem__ method hook that returns nodes and innovations as dicts
