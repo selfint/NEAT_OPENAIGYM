@@ -251,6 +251,7 @@ class NEAT:
         options = [genome for genome in self.species[species] if genome is not ignore
                    or len(self.species[species]) == 1]
         probs = np.array([genome_fitness[genome] for genome in options])
+        probs += min(probs)  # shift probs so that they start from 0
         probs /= sum(probs)
         return np.random.choice(options, p=probs)
 
