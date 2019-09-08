@@ -129,11 +129,11 @@ class NEAT:
 
     def calc_fitness(self, genome_scores: List[Tuple[Genome, float]]) -> Dict[Genome, float]:
         """Calculates the fitness of each genome using fitness-sharing in each species
-        
+
         Arguments:
             genome_scores {List[Tuple[Genome, float]]} -- the score each genome 
             recieved from the environment
-        
+
         Returns:
             Dict[genome, float] -- each genome and its adjusted score
         """
@@ -141,13 +141,13 @@ class NEAT:
         for genome in genome_fitness:
             genome_fitness[genome] /= len(self.get_genome_species(genome))
         return genome_fitness
-    
+
     def calc_species_fitness(self, genome_fitness: Dict[Genome, float]) -> Dict[Genome, float]:
         """Calculates the total fitness of each species
-        
+
         Arguments:
             genome_fitness {Dict[genome, float]} -- each genome and its fitness
-        
+
         Returns:
             Dict[genome, float] -- each species rep and its species fitness
         """
@@ -185,13 +185,14 @@ class NEAT:
 
         return species_children
 
-    def new_generation(self, genome_scores: List[Tuple[Genome, float]]) -> None:
+    def new_generation(self, genome_scores: List[Tuple[Genome, float]],
+                       mutation_consts: Dict[str, float]) -> None:
         """Generates a new generation 
-        
+
         Arguments:
             genome_scores {List[Tuple[Genome, float]]} -- the score each genome 
             recieved from the environment
-        
+
         Returns:
             None -- sets the population and species dicts of self
         """
@@ -211,46 +212,51 @@ class NEAT:
         children_species = {species: [] for species in species_children}
         for species in species_children:
             for _ in range(species_children[species]):
-                child = self.get_new_child(species, genome_fitness)
+                child = self.get_new_child(
+                    species, genome_fitness, mutation_consts)
                 children.append(child)
                 children_species[species].append(child)
-        
+
         # re-assign population to children
         self.population = children
 
-        # re-assign species so that each species is represented by a genome from the 
+        # re-assign species so that each species is represented by a genome from the
         # previous generation
         self.species = children_species
 
-    def get_parent(self, species: Genome, genome_fitness: Dict[Genome, float], ignore: Genome = None) -> Genome:
+    def get_parent(self, species: Genome, genome_fitness: Dict[Genome, float],
+                   ignore: Genome = None) -> Genome:
         """Returns a parent based on the species and the genome fitness levels
-        
+
         Arguments:
             species {Genome} -- species to choose from (unless interspecies mating happened)
             genome_fitness {Dict[Genome, float]} -- each genome and its fitness
-        
+
         Returns:
             Genome -- parent chosen
         """
         options = [genome for genome in self.species[species] if genome is not ignore
-             or len(self.species[species]) == 1]
+                   or len(self.species[species]) == 1]
         probs = np.array([genome_fitness[genome] for genome in options])
         probs /= sum(probs)
         return np.random.choice(options, p=probs)
 
-    def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float]) -> Genome:
-        """Generates a new child for a given species
+    def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float],
+                      mutation_consts: Dict[str, float]) -> Genome:
+        """Generates a new child and manages any new innovations and/or nodes
+        that were created during its mutations
 
         Arguments:
-            species {Genome} -- species rep of the given species
+            species {Genome} -- desired species rep of the child genome
+            genome_fitness {Dict[Genome, float]} -- each genome and its fitness
+            mutation_consts {Dict[str, float]} -- mutation probabilities
 
         Returns:
-            Genome -- genome of the new child
+            Genome -- the child genome
         """
 
         # select two parents from that species
         # TODO add interspecies crossover
-        # TODO finish get parent
         parent_a: Genome = self.get_parent(species, genome_fitness)
         parent_b: Genome = self.get_parent(species, genome_fitness, parent_a)
 
@@ -288,7 +294,75 @@ class NEAT:
 
         # generate child genome
         child = Genome(tuple(child_nodes), tuple(child_innovations))
+
+        # mutate child
+        child = self.mutate_genome(child, mutation_consts)
         return child
+
+
+    def mutate_genome(self, genome: Genome, mutation_consts: Dict[str, float]) -> Genome:
+        """Mutates a genome with any of the following mutations:
+        1. Mutate a weight value
+        2. Split a connection with a node
+        3. Add a connection between two nodes
+        Then adds any mutations to the global node and innovation dicts
+
+        Arguments:
+            genome {Genome} -- genome
+
+        Returns:
+            Genome -- the mutated genome
+        """
+
+        # weight mutation
+        if np.random.random_sample() < mutation_consts['weight']:
+            chosen = np.random.choice(genome.innovations)
+            new_innovation = Innovation(chosen.idx, chosen.src, chosen.dst,
+                                        np.random.random_sample() * 2 - 1, chosen.enabled)
+            new_innovations = [new_innovation if inn.idx == new_innovation.idx else inn
+                               for inn in genome.innovations]
+            new_genome = Genome(genome.nodes, tuple(new_innovations))
+            return new_genome
+
+        # connection mutation
+        if np.random.random_sample() < mutation_consts['connection']:
+            # get all connections outputing from the chosen source node
+            connections = []
+            for innovation in genome.innovations:
+                connections.append((innovation.src, innovation.dst))
+            
+            # get all available new connections in genome
+            options = []
+            for src_node in genome.nodes:
+                for dst_node in genome.nodes:
+                    if dst_node.role is NodeType.INPUT:
+                        continue
+                    if (src_node.idx, dst_node.idx) not in connections:
+                        options.append((src_node, dst_node))
+                    
+            # if a new connection can be made, choose one
+            if options:
+                chosen_src, chosen_dst = options[np.random.randint(0, len(options))]
+
+                # check if innovation already happened
+                for idx, (src, dst) in self.innovations.items():
+                    if src == chosen_src and dst == chosen_dst:
+                        new_innovation = Innovation(idx, src, dst,
+                                                    np.random.random_sample(), True)
+                        break
+
+                # if this is the first time, add it to the innovations dict
+                else:
+                    new_innovation = Innovation(max(self.innovations) + 1, chosen_src, chosen_dst,
+                                                np.random.random_sample(), True)
+                    self.innovations[new_innovation.idx] = (chosen_src, chosen_dst)
+
+                # return mutated genome
+                new_innovations = [new_innovation if inn.idx == new_innovation.idx else inn
+                                    for inn in genome.innovations]
+                new_genome = Genome(genome.nodes, tuple(new_innovations))
+                return new_genome
+        return genome
 
     def get_genome_species(self, genome: Genome) -> List[Genome]:
         """Returns all the genomes in the species of a given genom
@@ -316,12 +390,13 @@ class NEAT:
 
     def print_status(self, verbose: int = 1):
         """Prints the status of the algorithm
-        
+
         Keyword Arguments:
             verbose {int} -- verbosity_level (default: {1})
         """
         if verbose == 1:
             print(f"Total Species: {len(self.species)}")
+
 
 if __name__ == "__main__":
     TEST = NEAT(2, 5, 5, {'c1': 2.0, 'c2': 2.0, 'c3': 2.0, 't': 15.0})
