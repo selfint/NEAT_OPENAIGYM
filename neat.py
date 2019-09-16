@@ -25,7 +25,6 @@ class NEAT:
                                                         for idx, (i, j)
                                                         in enumerate(product(range(inputs),
                                                                              range(outputs)))}
-        # self.innovations: Dict[int, Tuple[int, int]] = dict()
 
         # generate initial population
         self.population: List[Genome] = []
@@ -200,7 +199,8 @@ class NEAT:
         return species_children
 
     def new_generation(self, genome_scores: List[Tuple[Genome, float]],
-                       mutation_consts: Dict[str, float]) -> None:
+                       mutation_consts: Dict[str, float],
+                       generation_consts: Dict[str, int]) -> None:
         """Generates a new generation 
 
         Arguments:
@@ -225,9 +225,18 @@ class NEAT:
         children = []
         children_species = {species: [] for species in species_children}
         for species in species_children:
+            champion_taken = False
             for _ in range(species_children[species]):
-                child = self.get_new_child(
-                    species, genome_fitness, mutation_consts)
+
+                # take the champion from each large species
+                if len(self.species[species]) >= generation_consts['large_species'] \
+                    and not champion_taken:
+                    child = max(self.species[species],
+                                key=lambda genome: genome_fitness[genome])
+                    champion_taken = True
+                else:
+                    child = self.get_new_child(species, genome_fitness,
+                                               mutation_consts)
                 children.append(child)
                 children_species[species].append(child)
 
@@ -510,10 +519,4 @@ if __name__ == "__main__":
     from genome_renderer import GenomeRenderer
     from main import SPECIATION_CONSTS, MUTATION_CONSTS
     TEST = NEAT(150, 5, 5, SPECIATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100)
-                         for gen in TEST.population], MUTATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100)
-                         for gen in TEST.population], MUTATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100)
-                         for gen in TEST.population], MUTATION_CONSTS)
     render = GenomeRenderer(TEST.population[0])
