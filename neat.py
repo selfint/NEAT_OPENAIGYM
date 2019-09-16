@@ -252,8 +252,9 @@ class NEAT:
         options = [genome for genome in self.species[species] if genome is not ignore
                    or len(self.species[species]) == 1]
         probs = np.array([genome_fitness[genome] for genome in options])
-        probs += min(probs)  # shift probs so that they start from 0
-        probs /= sum(probs)
+        probs -= np.min(probs)  # shift probs so that they start from 0
+        probs += np.finfo(float).eps
+        probs /= np.sum(probs)
         return np.random.choice(options, p=probs)
 
     def get_new_child(self, species: Genome, genome_fitness: Dict[Genome, float],
@@ -370,9 +371,13 @@ class NEAT:
 
         # 1. change weight mutation
         if np.random.random_sample() < mutation_consts['weight'] and new_genome.innovations:
-            chosen = np.random.choice(new_genome.innovations)
-            new_innovation = Innovation(chosen.idx, chosen.src, chosen.dst,
-                                        np.random.random_sample() * 2 - 1, chosen.enabled)
+            chosen: Innovation = np.random.choice(new_genome.innovations)
+            if np.random.random_sample() < mutation_consts['weight_pert']:
+                new_weight = chosen.weight + np.random.normal()
+            else:
+                new_weight = np.random.random_sample() * 2 - 1
+            new_innovation = Innovation(
+                chosen.idx, chosen.src, chosen.dst, new_weight, chosen.enabled)
             new_innovations = [new_innovation if inn.idx == new_innovation.idx else inn
                                for inn in new_genome.innovations]
             new_genome = Genome(new_genome.nodes, tuple(new_innovations))
@@ -496,18 +501,19 @@ class NEAT:
             verbose {int} -- verbosity_level (default: {1})
         """
         if verbose == 1:
-            print(
-                f"Total Species: {len(self.species)}\nTotal Nodes: {len(self.nodes)}\nTotal Innovations: {len(self.innovations)}")
+            print(f"Total Species: {len(self.species)}\n"
+                  f"Total Nodes: {len(self.nodes)}\n"
+                  f"Total Innovations: {len(self.innovations)}")
 
 
 if __name__ == "__main__":
     from genome_renderer import GenomeRenderer
-    SPECIATION_CONSTS = {'c1': 1.0, 'c2': 1.0, 'c3': 0.4, 't': 3.0}
-    MUTATION_CONSTS = {'weight': 0.4, 'connection': 0.0, 'node': 1.0,
-                    'enable_disabled_connection': 0.25, 'no_crossover': 0.25,
-                    'interspecies_mating': 0.001}
+    from main import SPECIATION_CONSTS, MUTATION_CONSTS
     TEST = NEAT(150, 5, 5, SPECIATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
-    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100)
+                         for gen in TEST.population], MUTATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100)
+                         for gen in TEST.population], MUTATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100)
+                         for gen in TEST.population], MUTATION_CONSTS)
     render = GenomeRenderer(TEST.population[0])
