@@ -398,6 +398,8 @@ class NEAT:
                 chosen_src, chosen_dst = options[np.random.randint(
                     0, len(options))]
 
+                new_innovation = None
+
                 # check if innovation already happened
                 for idx, (src, dst) in self.innovations.items():
                     if src == chosen_src.idx and dst == chosen_dst.idx:
@@ -416,6 +418,8 @@ class NEAT:
 
                 # return mutated genome
                 new_innovations = [inn for inn in new_genome.innovations]
+
+                assert new_innovation is not None, "Mutation didn't generate a new innovation"
                 new_innovations.append(new_innovation)
                 new_genome = Genome(new_genome.nodes, tuple(new_innovations))
                 return new_genome
@@ -497,12 +501,13 @@ class NEAT:
 
 
 if __name__ == "__main__":
-    TEST = NEAT(150, 5, 5, {'c1': 1.0, 'c2': 1.0, 'c3': 1.0, 't': 3.0})
-    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population],
-                        {'weight': 0.4, 'connection': 1, 'node': 0.0})
-    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population],
-                        {'weight': 0.4, 'connection': 1, 'node': 0.0})
-    print(TEST.get_diff(TEST.population[0], TEST.population[1]))
-    print(TEST.genetic_distance(TEST.population[0], TEST.population[1]))
-    print([inn for inn in TEST.population[0].innovations])
-    print([inn for inn in TEST.population[1].innovations])
+    from genome_renderer import GenomeRenderer
+    SPECIATION_CONSTS = {'c1': 1.0, 'c2': 1.0, 'c3': 0.4, 't': 3.0}
+    MUTATION_CONSTS = {'weight': 0.4, 'connection': 0.0, 'node': 1.0,
+                    'enable_disabled_connection': 0.25, 'no_crossover': 0.25,
+                    'interspecies_mating': 0.001}
+    TEST = NEAT(150, 5, 5, SPECIATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
+    TEST.new_generation([(gen, np.random.random_sample() * 100) for gen in TEST.population], MUTATION_CONSTS)
+    render = GenomeRenderer(TEST.population[0])
